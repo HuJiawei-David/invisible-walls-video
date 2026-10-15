@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Step Through the Glass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Open+Sans:wght@600&display=swap">
+<style>
+/* Layout: one fixed 1920x1080 stage, letterboxed and scaled to the window; a single SVG "world" group is the camera */
+:root{
+  --navy:#1F3A5F;            /* ground bands */
+  --night:#0E1B2C;           /* deep navy (navy at ~45% brightness) for the night sky */
+  --amber:#F2A93B;           /* light, hope, doors */
+  --ice:#E6F1F4;             /* glass, people, text */
+  --ice-soft:rgba(230,241,244,.78);
+  --night-veil:rgba(14,27,44,.62);
+  --head:"Montserrat","Helvetica Neue",Arial,sans-serif;
+  --body:"Open Sans","Segoe UI",Arial,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html{height:100%;box-sizing:border-box;background:var(--night)}
+body{height:100%;box-sizing:border-box;margin:0;background:var(--night);color:var(--ice);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;
+  font-family:var(--body)}
+body.playing{cursor:none}
+#wrap{position:relative;width:100%;height:100%;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:50% 50%;
+  transform:translate(-50%,-50%) scale(.5);background:var(--night);overflow:hidden}
+#stage > svg{position:absolute;inset:0;display:block}
+.layer{position:absolute;inset:0;pointer-events:none}
+
+#vignette{background:radial-gradient(ellipse 70% 72% at 50% 52%, rgba(14,27,44,0) 55%, rgba(14,27,44,.8) 100%)}
+#demandScrim{opacity:0;background:linear-gradient(to bottom, rgba(14,27,44,0) 58%, rgba(14,27,44,.86) 78%, rgba(14,27,44,.94) 100%)}
+#closeScrim{opacity:0;background:radial-gradient(ellipse 58% 52% at 50% 55%, rgba(14,27,44,.9) 0%, rgba(14,27,44,.78) 45%, rgba(14,27,44,0) 100%)}
+
+.caption{position:absolute;left:150px;right:150px;top:914px;margin:0;text-align:center;font:600 64px/1.2 var(--body);
+  color:var(--ice);text-wrap:balance;opacity:0}
+.headline{position:absolute;left:100px;right:100px;top:812px;margin:0;text-align:center;font:700 104px/1.1 var(--head);
+  letter-spacing:-.01em;color:var(--ice);opacity:0}
+#pips{position:absolute;left:0;right:0;top:964px;display:flex;justify-content:center;gap:22px;opacity:0}
+.pip{position:relative;width:26px;height:40px;box-sizing:border-box;border:3px solid var(--ice-soft);border-radius:3px}
+.pip i{position:absolute;inset:-3px;border-radius:3px;background:var(--amber);opacity:0}
+
+#slogan1{position:absolute;left:0;right:0;top:318px;margin:0;text-align:center;font:700 116px/1.05 var(--head);
+  letter-spacing:-.015em;color:var(--ice);opacity:0;white-space:nowrap}
+#slogan2{position:absolute;left:0;right:0;top:466px;margin:0;text-align:center;font:700 58px/1.1 var(--head);color:var(--amber);opacity:0}
+#qr{position:absolute;box-sizing:border-box;border:4px dashed var(--ice-soft);border-radius:10px;display:grid;place-items:center;
+  font:700 44px/1 var(--head);letter-spacing:.08em;color:var(--ice-soft);opacity:0}
+#url{position:absolute;margin:0;font:600 48px/1.2 var(--body);color:var(--ice);opacity:0;white-space:nowrap}
+
+#veil{position:absolute;inset:0;display:grid;place-items:center;background:var(--night-veil)}
+.btn{font-family:var(--head);font-weight:700;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:20px;
+  transition:transform .25s ease, background-color .25s ease, color .25s ease}
+.btn:focus-visible{outline:6px solid var(--ice);outline-offset:8px}
+#play{font-size:46px;padding:30px 70px 30px 58px;background:var(--amber);color:var(--night);border:0}
+#play:hover{transform:scale(1.04)}
+#play svg{width:38px;height:38px}
+#replay{position:absolute;right:80px;bottom:64px;font-size:30px;padding:18px 42px;background:transparent;color:var(--ice);border:3px solid var(--ice)}
+#replay:hover{background:var(--ice);color:var(--night)}
+@media (prefers-reduced-motion: reduce){.btn{transition:none}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stage" role="img" aria-label="Animated manifesto: Step Through the Glass. Build Belonging Together.">
+    <svg viewBox="0 0 1920 1080" width="1920" height="1080" aria-hidden="true">
+      <defs>
+        <linearGradient id="glassGrad" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="#E6F1F4" stop-opacity=".28"/>
+          <stop offset=".5" stop-color="#E6F1F4" stop-opacity=".09"/>
+          <stop offset="1" stop-color="#E6F1F4" stop-opacity=".22"/>
+        </linearGradient>
+        <radialGradient id="orbGrad">
+          <stop offset="0" stop-color="#F2A93B" stop-opacity=".95"/>
+          <stop offset=".3" stop-color="#F2A93B" stop-opacity=".42"/>
+          <stop offset="1" stop-color="#F2A93B" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="haloGrad">
+          <stop offset="0" stop-color="#F2A93B" stop-opacity=".55"/>
+          <stop offset=".45" stop-color="#F2A93B" stop-opacity=".2"/>
+          <stop offset="1" stop-color="#F2A93B" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="doorLight" x1="0" x2="0" y1="1" y2="0">
+          <stop offset="0" stop-color="#F2A93B" stop-opacity="1"/>
+          <stop offset="1" stop-color="#F2A93B" stop-opacity=".66"/>
+        </linearGradient>
+        <linearGradient id="spillGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#F2A93B" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#F2A93B" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+        <clipPath id="wallClip"><rect x="900" y="170" width="120" height="650"/></clipPath>
+      </defs>
+
+      <!-- THE WORLD: one transform on this group is the camera -->
+      <g id="world" opacity="0">
+        <g id="groundG"></g>
+        <g id="spillG"></g>
+        <g id="wallsG"></g>
+
+        <!-- the one wall we start with -->
+        <g id="mainWall">
+          <rect x="900" y="170" width="120" height="650" fill="url(#glassGrad)" stroke="#E6F1F4" stroke-opacity=".55" stroke-width="2"/>
+          <g clip-path="url(#wallClip)" stroke="#E6F1F4" stroke-linecap="round">
+            <line x1="890" y1="340" x2="1030" y2="240" stroke-opacity=".34" stroke-width="5"/>
+            <line x1="890" y1="380" x2="1030" y2="280" stroke-opacity=".2" stroke-width="2"/>
+            <line x1="890" y1="500" x2="1030" y2="430" stroke-opacity=".16" stroke-width="2"/>
+          </g>
+        </g>
+        <ellipse id="wallGlow" cx="960" cy="470" rx="80" ry="170" fill="url(#orbGrad)" opacity="0"/>
+
+        <g id="lightsG"></g>
+        <rect id="mainDoorLight" x="915" y="560" width="90" height="260" fill="url(#doorLight)" opacity="0"/>
+        <g id="mainDoorPanel" opacity="0">
+          <rect x="915" y="560" width="90" height="260" fill="#E6F1F4" fill-opacity=".14" stroke="#E6F1F4" stroke-opacity=".7" stroke-width="2.5"/>
+          <circle cx="990" cy="700" r="5" fill="#E6F1F4" fill-opacity=".8"/>
+        </g>
+        <path id="traceGlow" d="M960,560 H915 V820 M960,560 H1005 V820" fill="none" stroke="#F2A93B" stroke-width="12" filter="url(#glow)" stroke-dasharray="305" stroke-dashoffset="305" opacity="0"/>
+        <path id="traceL" d="M960,560 H915 V820" fill="none" stroke="#F2A93B" stroke-width="4" stroke-linejoin="round" stroke-dasharray="305" stroke-dashoffset="305"/>
+        <path id="traceR" d="M960,560 H1005 V820" fill="none" stroke="#F2A93B" stroke-width="4" stroke-linejoin="round" stroke-dasharray="305" stroke-dashoffset="305"/>
+        <g id="outlinesG"></g>
+
+        <g id="figsG"></g>
+
+        <ellipse id="mainBloom" cx="960" cy="700" rx="560" ry="380" fill="url(#haloGrad)" opacity="0"/>
+        <g id="halosG"></g>
+
+        <g id="orb" opacity="0">
+          <circle r="80" fill="url(#orbGrad)"/>
+          <circle r="10" fill="#F2A93B"/>
+        </g>
+      </g>
+    </svg>
+
+    <div class="layer" id="vignette"></div>
+    <div class="layer" id="demandScrim"></div>
+    <div class="layer" id="closeScrim"></div>
+
+    <div class="layer" id="textLayer">
+      <p class="caption" id="cap1">Sharing a space is not the same as connecting.</p>
+      <p class="caption" id="cap2">Many students feel the wall but cannot see it.</p>
+      <p class="caption" id="cap3">What if the wall had a door?</p>
+
+      <div id="headlines"></div>
+      <div id="pips"></div>
+
+      <p id="slogan1">Step Through the Glass.</p>
+      <p id="slogan2">Build Belonging Together.</p>
+      <div id="qr">QR</div>
+      <p id="url"></p>
+    </div>
+
+    <div id="veil">
+      <button class="btn" id="play" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5v17l14-8.5z" fill="currentColor"/></svg>
+        Play
+      </button>
+    </div>
+    <button class="btn" id="replay" type="button" hidden>Replay</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   MAIN CAMPAIGN PAGE URL, shown beside the QR placeholder in the close scene.
+   Replace with the team's main campaign page (NOT this video's own URL).
+   ============================================================ */
+const MAIN_WEBPAGE_URL = '[MAIN WEBPAGE URL]';
+
+/* ============================================================
+   TIMING: every scene's start and duration, in seconds.
+   Keep each start equal to the previous start + duration.
+   ============================================================ */
+const TIMING = {
+  setup:   { start: 0,  duration: 12 },  // one wall, close-up
+  breath:  { start: 12, duration: 2  },  // held stillness
+  turn:    { start: 14, duration: 8  },  // door appears, people meet, camera pulls back
+  demands: { start: 22, duration: 11 },  // five beats, doors light across the campus
+  close:   { start: 33, duration: 9  },  // slogan and QR hold
+};
+const END = TIMING.close.start + TIMING.close.duration;
+
+/* Beats inside a scene, as fractions of that scene's duration (they stretch with it). */
+const BEATS = {
+  caption1:    [0.06, 0.48],  // setup: fully gone by the second number
+  caption2:    [0.54, 0.96],
+  cluster:     [0.52, 0.82],  // setup: people drift into small groups, the wall fades
+  doorAppear:  0.06,          // turn: amber line starts drawing the door
+  doorTraced:  0.21,
+  doorOpen:    0.375,         // turn: door fully open
+  walkStart:   0.25,          // turn: both sides start walking
+  meet:        0.62,          // turn: the two meet in the doorway (slow ease)
+  pullBack:    0.50,          // turn: camera starts pulling back
+  turnCaption: [0.07, 0.93],
+  restLight:   [0.05, 0.45],  // close: the last dark doors switch on
+  widest:      0.35,          // close: camera settles on the widest shot
+  slogan1:     0.12,
+  slogan2:     0.25,
+  qr:          0.38,
+};
+
+const DEMANDS = ['Mix Every Group', 'Meet Every Week', 'Lower the Pressure', 'Say One Hello', 'Tell It Your Way'];
+const LIT_TOTALS = [3, 8, 16, 30, 50];        // cumulative lit doors after each demand
+const HEADLINE_FADE = 0.35;                   // s; each headline is fully readable for (beat length - 2 x this)
+const CAMERA_SCALES = [1.08, 0.42, 0.27, 0.20]; // pull-back start, demand 1, demand 3, demand 5 (widest is computed)
+
+/* Placeholders for the editor overlay (stage pixels at 1920x1080) */
+const QR_BOX = { x: 650, y: 610, size: 230 };
+const POSTER_TIME = 39.5;                      // frame shown behind the Play button
+
+/* ---------- helpers ---------- */
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const seg = (p, a, b) => clamp((p - a) / (b - a));
+const lerp = (a, b, u) => a + (b - a) * u;
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeSine = x => -(Math.cos(Math.PI * x) - 1) / 2;
+const meetEase = x => 1 - Math.pow(1 - easeSine(x), 2.2);   // soft start, long slow arrival
+const prog = (name, t) => (t - TIMING[name].start) / TIMING[name].duration;
+const at = (name, frac) => TIMING[name].start + TIMING[name].duration * frac;
+const beatTime = k => at('demands', k / DEMANDS.length);
+const windowOpacity = (t, tIn, tOut, fade) => ease(clamp((t - tIn) / fade)) * (1 - ease(clamp((t - (tOut - fade)) / fade)));
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+const fmt = v => typeof v === 'number' ? String(+v.toFixed(3)) : v;
+function set(el, k, v) { const s = fmt(v); if (el['_' + k] !== s) { el['_' + k] = s; el.setAttribute(k, s); } }
+function show(el, o) { set(el, 'opacity', o); set(el, 'display', o > 0.001 ? 'inline' : 'none'); }
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------- people (identical neutral shapes) ---------- */
+function makeFigure(parent, h) {
+  const g = svgEl('g', {}, parent);
+  svgEl('rect', { x: -22, y: -h, width: 44, height: h, rx: 22, fill: '#E6F1F4' }, g);
+  const head = svgEl('circle', { cx: 0, cy: -h - 25, r: 18, fill: '#E6F1F4' }, g);
+  return { g, head };
+}
+
+/* ---------- the campus: a grid of glass walls, the centre one is ours ---------- */
+const SX = 1150, SY = 950, COLS = 5, ROWS = 3, DOOR_X = 960, FLOOR = 820;
+const rng = mulberry32(11);
+const cells = [];
+for (let r = -ROWS; r <= ROWS; r++) {
+  for (let c = -COLS; c <= COLS; c++) {
+    const main = r === 0 && c === 0;
+    let jx = main ? 0 : (rng() * 2 - 1) * 90;
+    if (r === 0 && Math.abs(c) === 1) jx = Math.sign(c) * Math.abs(jx);   // keep close-up neighbours off screen
+    cells.push({ r, c, main, wx: 960 + c * SX + jx, floor: FLOOR + r * SY, wallH: main ? 650 : 540 + rng() * 110, litAt: null });
+  }
+}
+const mainCell = cells.find(c => c.main);
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+cells.forEach(c => {
+  minX = Math.min(minX, c.wx - 460); maxX = Math.max(maxX, c.wx + 460);
+  minY = Math.min(minY, c.floor - c.wallH); maxY = Math.max(maxY, c.floor + 70);
+});
+const WIDE_SCALE = Math.min(1920 / (maxX - minX + 300), 1080 / (maxY - minY + 260));
+const C0 = { x: 960, y: 560 };
+const C1 = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+
+// ground bands, one per row
+for (let r = -ROWS; r <= ROWS; r++) {
+  const y = FLOOR + r * SY;
+  svgEl('rect', { x: minX - 900, y, width: maxX - minX + 1800, height: 70, fill: '#1F3A5F', 'fill-opacity': .6 }, $('groundG'));
+  svgEl('line', { x1: minX - 900, y1: y, x2: maxX + 900, y2: y, stroke: '#E6F1F4', 'stroke-opacity': .2, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' }, $('groundG'));
+}
+
+const campusFigs = [];
+cells.forEach(cell => {
+  const { wx, floor } = cell, dx = wx - 45, dy = floor - 260;
+  cell.spill = svgEl('polygon', { points: `${dx},${floor} ${dx + 90},${floor} ${wx + 300},${floor + 66} ${wx - 300},${floor + 66}`, fill: 'url(#spillGrad)', opacity: 0, display: 'none' }, $('spillG'));
+  cell.halo = svgEl('ellipse', { cx: wx, cy: floor - 140, rx: 430, ry: 330, fill: 'url(#haloGrad)', opacity: 0, display: 'none' }, $('halosG'));
+  cell.litOutline = svgEl('rect', { x: dx, y: dy, width: 90, height: 260, fill: 'none', stroke: '#F2A93B', 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke', opacity: 0, display: 'none' }, $('outlinesG'));
+  if (cell.main) return;
+  svgEl('rect', { x: wx - 60, y: floor - cell.wallH, width: 120, height: cell.wallH, fill: 'url(#glassGrad)', stroke: '#E6F1F4', 'stroke-opacity': .42, 'stroke-width': 1.2, 'vector-effect': 'non-scaling-stroke' }, $('wallsG'));
+  cell.light = svgEl('rect', { x: dx, y: dy, width: 90, height: 260, fill: 'url(#doorLight)', opacity: 0, display: 'none' }, $('lightsG'));
+  cell.dimOutline = svgEl('rect', { x: dx, y: dy, width: 90, height: 260, fill: '#E6F1F4', 'fill-opacity': .05, stroke: '#E6F1F4', 'stroke-opacity': .45, 'stroke-width': 1.2, 'vector-effect': 'non-scaling-stroke' }, $('wallsG'));
+
+  // two or three people per wall, on both sides
+  const n = 2 + (rng() < .5 ? 1 : 0);
+  let side = rng() < .5 ? -1 : 1;
+  const bySide = { '-1': [], '1': [] };
+  for (let i = 0; i < n; i++, side = -side) {
+    const inwardNeighbour = cell.r === 0 && Math.abs(cell.c) === 1 && side === -Math.sign(cell.c);
+    bySide[side].push(inwardNeighbour ? 100 + rng() * 60 : 120 + rng() * 320);
+  }
+  [-1, 1].forEach(s => {
+    const ds = bySide[s].sort((a, b) => a - b);
+    for (let i = 1; i < ds.length; i++) ds[i] = Math.max(ds[i], ds[i - 1] + 64);
+    ds.forEach((d, rank) => {
+      const h = 78 + rng() * 22;
+      const f = makeFigure($('figsG'), h);
+      Object.assign(f, { cell, h, x0: wx + s * d, x1: wx + s * (92 + rank * 62), lean: (rng() * 2 - 1) * 2.5, phase: rng() * 6 });
+      set(f.g, 'opacity', .86);
+      campusFigs.push(f);
+    });
+  });
+});
+
+/* ---------- the twelve people at our wall ----------
+   p1 = start, p2 = small groups (caption 2), p3 = after walking to the door.
+   meet = the two who meet in the doorway. */
+const FIGS = [
+  { p1: 260,  p2: 220,  p3: 560,  h: 92, lean: -2 },
+  { p1: 380,  p2: 282,  p3: 622,  h: 84, lean: 1 },
+  { p1: 500,  p2: 440,  p3: 724,  h: 96, lean: 0,  alone: true },
+  { p1: 610,  p2: 600,  p3: 786,  h: 80, lean: 3 },
+  { p1: 720,  p2: 662,  p3: 860,  h: 90, lean: -1 },
+  { p1: 830,  p2: 840,  p3: 937,  h: 86, lean: 2,  alone: true, meet: true },
+  { p1: 1090, p2: 1110, p3: 983,  h: 94, lean: -2, alone: true, meet: true },
+  { p1: 1200, p2: 1330, p3: 1060, h: 82, lean: -3 },
+  { p1: 1310, p2: 1392, p3: 1134, h: 98, lean: 1 },
+  { p1: 1420, p2: 1600, p3: 1196, h: 88, lean: 2 },
+  { p1: 1540, p2: 1662, p3: 1300, h: 80, lean: -1 },
+  { p1: 1660, p2: 1724, p3: 1362, h: 92, lean: 0 },
+];
+FIGS.forEach((f, i) => Object.assign(f, makeFigure($('figsG'), f.h), { i, rank: Math.round(Math.abs(f.p2 - DOOR_X) / 120) }));
+
+/* ---------- camera: push-in during setup, then one continuous pull-back ---------- */
+function monotone(xs, ys) {
+  const n = xs.length, d = [], m = new Array(n).fill(0);
+  for (let i = 0; i < n - 1; i++) d[i] = (ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]);
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], s = a * a + b * b;
+    if (s > 9) { const k = 3 / Math.sqrt(s); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; }
+  }
+  return x => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[n - 1]) return ys[n - 1];
+    let i = 0; while (x > xs[i + 1]) i++;
+    const h = xs[i + 1] - xs[i], u = (x - xs[i]) / h, u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * ys[i] + (u3 - 2 * u2 + u) * h * m[i] + (-2 * u3 + 3 * u2) * ys[i + 1] + (u3 - u2) * h * m[i + 1];
+  };
+}
+const PULL_T = [at('turn', BEATS.pullBack), beatTime(0), beatTime(2), beatTime(4), at('close', BEATS.widest)];
+const PULL_L = [...CAMERA_SCALES, WIDE_SCALE].map(Math.log);
+const pullSpline = monotone(PULL_T, PULL_L);
+function camera(t) {
+  if (t < PULL_T[0]) {
+    const s = lerp(1.0, CAMERA_SCALES[0], easeSine(seg(t, 0, TIMING.breath.start)));
+    return { s, x: C0.x, y: C0.y, P: 0 };
+  }
+  const L = pullSpline(t), P = clamp((L - PULL_L[0]) / (PULL_L[PULL_L.length - 1] - PULL_L[0]));
+  return { s: Math.exp(L), x: lerp(C0.x, C1.x, P), y: lerp(C0.y, C1.y, P), P };
+}
+
+/* ---------- which doors light on each beat (spreading out from our door, always on screen) ---------- */
+(function planLights() {
+  mainCell.litAt = at('turn', BEATS.doorOpen) - .5;
+  const jitter = new Map(cells.map(c => [c, rng() * .9]));
+  const dist = c => Math.hypot(c.c, c.r * 1.25) + jitter.get(c);
+  const onScreen = (c, cam, maxY) => {
+    const sx = 960 + (c.wx - cam.x) * cam.s, sy = 540 + (c.floor - 130 - cam.y) * cam.s;
+    return sx > 90 && sx < 1830 && sy > 70 && sy < maxY;
+  };
+  let lit = 1;
+  LIT_TOTALS.forEach((total, k) => {
+    const tb = beatTime(k), cam = camera(tb + .3), need = total - lit;
+    let pool = cells.filter(c => c.litAt === null && onScreen(c, cam, 760));
+    if (pool.length < need) pool = cells.filter(c => c.litAt === null && onScreen(c, cam, 1010));
+    if (pool.length < need) pool = cells.filter(c => c.litAt === null);
+    pool.sort((a, b) => dist(a) - dist(b)).slice(0, need).forEach((c, j) => {
+      c.litAt = tb + (need > 1 ? j / (need - 1) : 0) * Math.min(.9, .12 * need);
+    });
+    lit = total;
+  });
+  const rest = cells.filter(c => c.litAt === null).sort((a, b) => dist(a) - dist(b));
+  rest.forEach((c, j) => { c.litAt = at('close', lerp(BEATS.restLight[0], BEATS.restLight[1], rest.length > 1 ? j / (rest.length - 1) : 0)); });
+})();
+
+/* ---------- text elements ---------- */
+const headlines = DEMANDS.map(text => {
+  const p = document.createElement('p');
+  p.className = 'headline';
+  p.textContent = text;
+  $('headlines').appendChild(p);
+  return p;
+});
+const pips = DEMANDS.map(() => {
+  const d = document.createElement('div');
+  d.className = 'pip';
+  const fill = document.createElement('i');
+  d.appendChild(fill);
+  $('pips').appendChild(d);
+  return fill;
+});
+Object.assign($('qr').style, { left: QR_BOX.x + 'px', top: QR_BOX.y + 'px', width: QR_BOX.size + 'px', height: QR_BOX.size + 'px' });
+Object.assign($('url').style, { left: (QR_BOX.x + QR_BOX.size + 56) + 'px', top: (QR_BOX.y + QR_BOX.size / 2 - 29) + 'px' });
+$('url').textContent = MAIN_WEBPAGE_URL;
+
+/* ---------- our twelve: where they stand ---------- */
+function mainX(f, t) {
+  const pS = prog('setup', t), pT = prog('turn', t);
+  let x = lerp(f.p1, f.p2, ease(seg(pS, BEATS.cluster[0] + f.i * .01, BEATS.cluster[1] + f.i * .01)));
+  if (pT > 0) {
+    const a = f.meet ? BEATS.walkStart : BEATS.walkStart + .05 + f.rank * .025;
+    const b = f.meet ? BEATS.meet : .8;
+    const u = seg(pT, a, b);
+    x = lerp(f.p2, f.p3, f.meet ? meetEase(u) : ease(u));
+  }
+  return x;
+}
+
+/* ---------- one frame ---------- */
+function render(t) {
+  const pS = prog('setup', t), pT = prog('turn', t);
+  const cam = camera(t);
+
+  set($('world'), 'transform', `translate(960 540) scale(${cam.s.toFixed(5)}) translate(${(-cam.x).toFixed(2)} ${(-cam.y).toFixed(2)})`);
+  set($('world'), 'opacity', ease(clamp(t / 1.4)));
+  $('vignette').style.opacity = (1 - cam.P).toFixed(3);
+
+  // stillness: sway settles before the breath and returns with the turn
+  const stir = clamp(1 - ease(clamp((t - (TIMING.breath.start - .9)) / .9)) + ease(clamp((t - TIMING.turn.start) / 1.4)));
+
+  // captions
+  $('cap1').style.opacity = windowOpacity(t, at('setup', BEATS.caption1[0]), at('setup', BEATS.caption1[1]), .7);
+  $('cap2').style.opacity = windowOpacity(t, at('setup', BEATS.caption2[0]), at('setup', BEATS.caption2[1]), .7);
+  $('cap3').style.opacity = windowOpacity(t, at('turn', BEATS.turnCaption[0]), at('turn', BEATS.turnCaption[1]), .7);
+
+  // the wall: felt but not seen, then back when the door appears
+  const wallA = 1 - .62 * ease(seg(pS, BEATS.cluster[0], BEATS.cluster[1])) + .62 * ease(seg(pT, 0, .15));
+  set($('mainWall'), 'opacity', wallA);
+
+  // amber spot: drifts in, rests inside the glass, becomes the door
+  const orbIn = seg(pS, .1, .9);
+  let ox = lerp(250, 960, easeSine(orbIn)), oy = lerp(300, 470, easeSine(orbIn)) - Math.sin(Math.PI * orbIn) * 50;
+  let oa = ease(seg(pS, .1, .2)), os = 1;
+  if (t >= TIMING.breath.start && t < TIMING.turn.start) os = 1 + .025 * Math.sin((t - TIMING.breath.start) * Math.PI);
+  if (pT > 0) {
+    const d = ease(seg(pT, 0, .09));
+    oy = lerp(470, 560, d); os = lerp(1, .6, d);
+    oa *= 1 - ease(seg(pT, .07, .2));
+  }
+  set($('orb'), 'transform', `translate(${ox.toFixed(1)} ${oy.toFixed(1)}) scale(${os.toFixed(3)})`);
+  show($('orb'), oa);
+  show($('wallGlow'), oa * Math.max(0, 1 - Math.abs(ox - DOOR_X) / 190) * .9);
+  set($('wallGlow'), 'cy', oy);
+
+  // the door: traced in amber, opened, light blooms onto floor and people
+  const trace = ease(seg(pT, BEATS.doorAppear, BEATS.doorTraced));
+  const open = ease(seg(pT, BEATS.doorTraced, BEATS.doorOpen));
+  const bloom = ease(seg(pT, BEATS.doorTraced - .02, .55));
+  ['traceL', 'traceR', 'traceGlow'].forEach(id => set($(id), 'stroke-dashoffset', 305 * (1 - trace)));
+  show($('traceGlow'), trace * .85 * (1 - cam.P));
+  show($('mainDoorPanel'), clamp(trace * 1.4));
+  set($('mainDoorPanel'), 'transform', `translate(915 0) scale(${(1 - .88 * open).toFixed(3)} 1) translate(-915 0)`);
+  show($('mainDoorLight'), open);
+  show($('mainBloom'), bloom * .9 * (1 - cam.P));
+  show(mainCell.halo, bloom);
+  show(mainCell.spill, bloom);
+  show(mainCell.litOutline, open);
+
+  // our twelve
+  FIGS.forEach(f => {
+    const x = mainX(f, t);
+    const speed = Math.abs(mainX(f, t + .04) - mainX(f, t - .04)) / .08;
+    const bob = -Math.min(1, speed / 55) * Math.abs(Math.sin(x / 58 * Math.PI)) * 6;
+    const appear = ease(clamp((t - .4 - f.i * .08) / 1.2));
+    const droop = f.alone ? ease(seg(pS, .62, .82)) * (1 - ease(seg(pT, BEATS.walkStart, BEATS.walkStart + .2))) : 0;
+    const lean = f.lean + Math.sin(t * 1.2 + f.i * 1.7) * .9 * stir;
+    set(f.g, 'transform', `translate(${x.toFixed(2)} ${(FLOOR + bob + (1 - appear) * 14).toFixed(2)}) rotate(${lean.toFixed(2)})`);
+    set(f.g, 'opacity', appear);
+    set(f.head, 'cy', -f.h - 25 + droop * 9);
+    set(f.head, 'cx', droop * 6);
+  });
+
+  // the campus: doors switch on like city lights, people step toward them
+  cells.forEach(c => {
+    if (c.main) return;
+    const u = ease(clamp((t - c.litAt) / .5));
+    const uh = ease(clamp((t - c.litAt) / 1.3));
+    show(c.light, u);
+    show(c.litOutline, u);
+    set(c.dimOutline, 'opacity', 1 - u);
+    show(c.halo, uh);
+    show(c.spill, uh);
+  });
+  if (cam.P > 0) {
+    campusFigs.forEach(f => {
+      const u = ease(clamp((t - f.cell.litAt - .4) / 2.6));
+      const lean = f.lean + Math.sin(t * 1.2 + f.phase) * .9;
+      set(f.g, 'transform', `translate(${lerp(f.x0, f.x1, u).toFixed(1)} ${f.cell.floor}) rotate(${lean.toFixed(2)})`);
+    });
+  } else {
+    campusFigs.forEach(f => set(f.g, 'transform', `translate(${f.x0.toFixed(1)} ${f.cell.floor}) rotate(${f.lean.toFixed(2)})`));
+  }
+
+  // five demands: one headline per beat, pips fill up
+  const dWin = windowOpacity(t, TIMING.demands.start - .3, TIMING.close.start + .5, .6);
+  $('demandScrim').style.opacity = dWin.toFixed(3);
+  $('pips').style.opacity = dWin.toFixed(3);
+  headlines.forEach((h, k) => {
+    const b = beatTime(k), len = TIMING.demands.duration / DEMANDS.length;
+    const o = windowOpacity(t, b, b + len, HEADLINE_FADE);
+    h.style.opacity = o.toFixed(3);
+    h.style.transform = `translateY(${((1 - o) * (t < b + len / 2 ? 14 : -10)).toFixed(1)}px)`;
+    pips[k].style.opacity = ease(clamp((t - b) / HEADLINE_FADE)).toFixed(3);
+  });
+
+  // close: slogan, then the QR placeholder
+  $('closeScrim').style.opacity = ease(clamp((t - TIMING.close.start) / 1.4)).toFixed(3);
+  [['slogan1', BEATS.slogan1], ['slogan2', BEATS.slogan2], ['qr', BEATS.qr], ['url', BEATS.qr + .02]].forEach(([id, frac]) => {
+    const u = ease(clamp((t - at('close', frac)) / 1.0));
+    $(id).style.opacity = u.toFixed(3);
+    $(id).style.transform = `translateY(${((1 - u) * 18).toFixed(1)}px)`;
+  });
+}
+
+/* ---------- stage scaling ---------- */
+function fit() {
+  const wrap = $('wrap');
+  const s = Math.min(wrap.clientWidth / 1920, wrap.clientHeight / 1080);
+  $('stage').style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+window.addEventListener('resize', fit);
+fit();
+
+/* ---------- playback ---------- */
+let startAt = 0, rafId = 0;
+function tick(now) {
+  const t = (now - startAt) / 1000;
+  if (t >= END) {
+    render(END);
+    document.body.classList.remove('playing');
+    $('replay').hidden = false;
+    return;
+  }
+  render(t);
+  rafId = requestAnimationFrame(tick);
+}
+function play() {
+  cancelAnimationFrame(rafId);
+  $('veil').hidden = true;
+  $('replay').hidden = true;
+  document.body.classList.add('playing');
+  render(0);
+  startAt = performance.now();
+  rafId = requestAnimationFrame(tick);
+}
+$('play').addEventListener('click', play);
+$('replay').addEventListener('click', play);
+
+render(POSTER_TIME);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!$('veil').hidden) render(POSTER_TIME); });
+
+/* Key timestamps, computed from TIMING and BEATS (also listed in the reply) */
+window.TIMESTAMPS = {
+  breathStart: TIMING.breath.start,
+  doorAppears: at('turn', BEATS.doorAppear),
+  doorFullyOpen: at('turn', BEATS.doorOpen),
+  pullBackStarts: at('turn', BEATS.pullBack),
+  demands: DEMANDS.map((d, k) => [d, beatTime(k)]),
+  slogan1: at('close', BEATS.slogan1),
+  slogan2: at('close', BEATS.slogan2),
+  qr: at('close', BEATS.qr),
+  end: END,
+};
+window.__render = render;
+</script>
+</body>
+</html>
