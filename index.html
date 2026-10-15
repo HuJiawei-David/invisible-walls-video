@@ -58,9 +58,19 @@ body.playing{cursor:none}
 #play{font-size:46px;padding:30px 70px 30px 58px;background:var(--amber);color:var(--night);border:0}
 #play:hover{transform:scale(1.04)}
 #play svg{width:38px;height:38px}
-#replay{position:absolute;right:80px;bottom:64px;font-size:30px;padding:18px 42px;background:transparent;color:var(--ice);border:3px solid var(--ice)}
+#replay{position:absolute;right:80px;bottom:100px;font-size:30px;padding:18px 42px;background:transparent;color:var(--ice);border:3px solid var(--ice)}
 #replay:hover{background:var(--ice);color:var(--night)}
-@media (prefers-reduced-motion: reduce){.btn{transition:none}}
+/* progress bar: appears on mouse move, hides after 2 s of stillness while playing */
+#bar{position:absolute;left:80px;right:80px;bottom:20px;height:44px;cursor:pointer;opacity:0;transition:opacity .4s ease;touch-action:none}
+body.ui-on #bar{opacity:1}
+body.playing.ui-on{cursor:auto}
+#barTrack{position:absolute;left:0;right:0;top:50%;height:6px;margin-top:-3px;border-radius:3px;background:rgba(230,241,244,.22)}
+#barFill{position:absolute;inset:0;border-radius:3px;background:var(--amber);transform-origin:0 50%;transform:scaleX(0)}
+#barKnob{position:absolute;top:50%;left:0;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--amber);box-shadow:0 0 14px rgba(242,169,59,.6)}
+.tick{position:absolute;top:50%;width:2px;height:14px;margin:-7px 0 0 -1px;border-radius:1px;background:rgba(230,241,244,.5)}
+#barTime{position:absolute;right:0;bottom:36px;font:600 22px/1 var(--body);color:var(--ice-soft);font-variant-numeric:tabular-nums}
+#bar:hover #barTrack{height:8px;margin-top:-4px}
+@media (prefers-reduced-motion: reduce){.btn{transition:none}#bar{transition:none}}
 </style>
 </head>
 <body>
@@ -160,6 +170,10 @@ body.playing{cursor:none}
       </button>
     </div>
     <button class="btn" id="replay" type="button" hidden>Replay</button>
+    <div id="bar" hidden role="slider" aria-label="Playback position" aria-valuemin="0" aria-valuemax="42" aria-valuenow="0">
+      <div id="barTrack"><div id="barFill"></div><div id="ticks"></div><div id="barKnob"></div></div>
+      <div id="barTime">0:00 / 0:42</div>
+    </div>
   </div>
 </div>
 
@@ -526,29 +540,80 @@ window.addEventListener('resize', fit);
 fit();
 
 /* ---------- playback ---------- */
-let startAt = 0, rafId = 0;
+let startAt = 0, rafId = 0, running = false, paused = false, pausedT = 0, uiTimer = 0;
+const fmtT = t => { const s = Math.floor(clamp(t, 0, END)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function setProgress(t) {
+  const f = clamp(t / END);
+  $('barFill').style.transform = `scaleX(${f.toFixed(4)})`;
+  $('barKnob').style.left = (f * 100).toFixed(3) + '%';
+  $('barTime').textContent = `${fmtT(t)} / ${fmtT(END)}`;
+  $('bar').setAttribute('aria-valuenow', Math.floor(t));
+}
+function showUI(stay) {
+  document.body.classList.add('ui-on');
+  clearTimeout(uiTimer);
+  if (!stay && running && !paused) uiTimer = setTimeout(() => document.body.classList.remove('ui-on'), 2000);
+}
+function finish() {
+  running = false; paused = false;
+  render(END); setProgress(END);
+  document.body.classList.remove('playing');
+  $('replay').hidden = false;
+  showUI(true);
+}
 function tick(now) {
   const t = (now - startAt) / 1000;
-  if (t >= END) {
-    render(END);
-    document.body.classList.remove('playing');
-    $('replay').hidden = false;
-    return;
-  }
-  render(t);
+  if (t >= END) { finish(); return; }
+  render(t); setProgress(t);
   rafId = requestAnimationFrame(tick);
 }
-function play() {
+function startFrom(t) {
   cancelAnimationFrame(rafId);
-  $('veil').hidden = true;
-  $('replay').hidden = true;
+  $('veil').hidden = true; $('replay').hidden = true; $('bar').hidden = false;
   document.body.classList.add('playing');
-  render(0);
-  startAt = performance.now();
+  running = true; paused = false;
+  render(t); setProgress(t);
+  startAt = performance.now() - t * 1000;
   rafId = requestAnimationFrame(tick);
+}
+function play() { startFrom(0); showUI(false); }
+function togglePause() {
+  if (!running) return;
+  if (paused) { startFrom(pausedT); showUI(false); return; }
+  paused = true;
+  pausedT = (performance.now() - startAt) / 1000;
+  cancelAnimationFrame(rafId);
+  showUI(true);
+}
+function seekTo(e) {
+  const r = $('barTrack').getBoundingClientRect();
+  const t = Math.min(clamp((e.clientX - r.left) / r.width) * END, END - 0.01);
+  if (paused) { pausedT = t; render(t); setProgress(t); }
+  else startFrom(t);
 }
 $('play').addEventListener('click', play);
 $('replay').addEventListener('click', play);
+
+// scene markers on the bar
+Object.values(TIMING).forEach(s => {
+  if (s.start <= 0) return;
+  const m = document.createElement('div');
+  m.className = 'tick';
+  m.style.left = (s.start / END * 100) + '%';
+  $('ticks').appendChild(m);
+});
+
+// click or drag the bar to jump; Space pauses and resumes
+let dragging = false;
+$('bar').addEventListener('pointerdown', e => { dragging = true; $('bar').setPointerCapture(e.pointerId); seekTo(e); showUI(true); });
+$('bar').addEventListener('pointermove', e => { if (dragging) seekTo(e); });
+$('bar').addEventListener('pointerup', () => { dragging = false; showUI(false); });
+$('bar').addEventListener('pointerenter', () => showUI(true));
+$('bar').addEventListener('pointerleave', () => { if (!dragging) showUI(false); });
+window.addEventListener('pointermove', () => { if (!dragging && !$('bar').matches(':hover')) showUI(false); });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && running) { e.preventDefault(); togglePause(); }
+});
 
 render(POSTER_TIME);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!$('veil').hidden) render(POSTER_TIME); });
